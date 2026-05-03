@@ -1,10 +1,15 @@
 import requests
+from dotenv import load_dotenv
+import os
+
+# Load environment variables from .env file
+load_dotenv()
 
 # Token của bot Telegram (Thay thế bằng mã token thực tế)
-TELEGRAM_BOT_TOKEN = '8674098310:AAGh6ONnPV_gnsblCDDKOO78Yqy4f0VYut8'  # Replace with your actual bot token
+TELEGRAM_BOT_TOKEN = os.getenv('TELEGRAM_BOT_TOKEN')
 
 # ID chat của sếp Thanh Luân
-CHAT_ID = '7723244420'
+CHAT_ID = os.getenv('CHAT_ID')
 
 def send_message(message):
     """
