@@ -1,7 +1,7 @@
 import requests
 
-# Token của bot Telegram
-TELEGRAM_BOT_TOKEN = '[Token của sếp]'
+# Token của bot Telegram (Thay thế bằng mã token thực tế)
+TELEGRAM_BOT_TOKEN = '[Dán mã Token của sếp vào đây]'
 
 # ID chat của sếp Thanh Luân
 CHAT_ID = '7723244420'
