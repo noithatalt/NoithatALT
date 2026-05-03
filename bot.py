@@ -1,10 +1,10 @@
 import requests
 
 # Token của bot Telegram
-TELEGRAM_BOT_TOKEN = 'YOUR_TELEGRAM_BOT_TOKEN'
+TELEGRAM_BOT_TOKEN = '[Token của sếp]'
 
 # ID chat của sếp Thanh Luân
-CHAT_ID = 'YOUR_CHAT_ID'
+CHAT_ID = '7723244420'
 
 def send_message(message):
     """
