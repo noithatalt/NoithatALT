@@ -30,5 +30,5 @@ def send_message(message):
         print(f"Lỗi khi gửi tin nhắn: {response.text}")
 
 if __name__ == '__main__':
-    message = "Chào sếp Thanh Luân!"
+    message = "Xin chào sếp Thanh Luân!"
     send_message(message)
