@@ -47,6 +47,8 @@ config.yml
 
 # AI agent runtime data
 .aider*
+.claude/.credentials.json
+.claude/settings.local.json
 .codex/
 .config/
 .openclaw/agents/
