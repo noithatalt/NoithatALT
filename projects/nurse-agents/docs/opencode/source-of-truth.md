@@ -62,8 +62,8 @@ bash ~/projects/nurse-agents/scripts/opencode/full-healthcheck.sh
 | OpenCode | ✅ v1.15.13 | 15 agents, 12 commands, 11 skills |
 | Proxy port 3000 | ✅ chạy | Anthropic-compatible |
 | Ollama port 11434 | ✅ chạy | 9 models |
-| nurse-agents API | ✅ | 5 tests pass |
+| nurse-agents API | ✅ | 15 tests pass, SQLite persistent |
 | MCP servers | ⚠️ disabled mặc định | Enable per task |
-| OpenHands | 🔜 chưa cài | Phase sau |
+| OpenHands | ✅ port 3001 | docker run, workspace ~/openhands-workspace |
 
 **Cập nhật trạng thái này** khi có thay đổi lớn về infrastructure.
