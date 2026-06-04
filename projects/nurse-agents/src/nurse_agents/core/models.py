@@ -1,0 +1,31 @@
+from pydantic import BaseModel, Field
+
+
+class ProjectStartRequest(BaseModel):
+    project_name: str = Field(..., min_length=1)
+    summary: str = Field(..., min_length=10)
+    target_user: str = Field(..., min_length=3)
+    mvp: str = Field(..., min_length=5)
+
+
+class DiagnosisResponse(BaseModel):
+    foundation_score: int
+    risk_level: str
+    weak_points: list[str]
+    priority_actions: list[str]
+    strengths: list[str]
+    missing_foundations: list[str]
+    honest_advice: str
+
+
+class ProjectDiagnosisResponse(BaseModel):
+    """Diagnosis result with project identifier for retrieval."""
+
+    project_id: str = Field(..., description="Unique identifier for the project diagnosis")
+    foundation_score: int
+    risk_level: str
+    weak_points: list[str]
+    priority_actions: list[str]
+    strengths: list[str]
+    missing_foundations: list[str]
+    honest_advice: str

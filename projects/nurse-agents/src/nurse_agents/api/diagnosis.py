@@ -1,29 +1,39 @@
 """Diagnosis endpoints for project health assessment."""
 
 import logging
+import uuid
+from typing import Dict
 
 from fastapi import APIRouter, HTTPException, status
 
 from nurse_agents.core.advice import build_project_start_diagnosis
-from nurse_agents.core.models import DiagnosisResponse, ProjectStartRequest
+from nurse_agents.core.models import (
+    DiagnosisResponse,
+    ProjectDiagnosisResponse,
+    ProjectStartRequest,
+)
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/diagnosis", tags=["diagnosis"])
 
+# In-memory storage for diagnosis results: {project_id: DiagnosisResponse}
+_diagnosis_storage: Dict[str, DiagnosisResponse] = {}
 
-@router.post("/project-start", response_model=DiagnosisResponse)
-def diagnose_project_start(payload: ProjectStartRequest) -> DiagnosisResponse:
+
+@router.post("/project-start", response_model=ProjectDiagnosisResponse)
+def diagnose_project_start(payload: ProjectStartRequest) -> ProjectDiagnosisResponse:
     """Diagnose project start configuration and provide recommendations.
 
     Analyzes the provided project information and returns a detailed diagnosis
     including foundation score, risk level, weak points, and priority actions.
+    The diagnosis result is stored for later retrieval via GET /diagnosis/{project_id}.
 
     Args:
         payload: Project start request with name, summary, target user, and MVP description.
 
     Returns:
-        DiagnosisResponse: Comprehensive diagnosis with scores and recommendations.
+        ProjectDiagnosisResponse: Comprehensive diagnosis with project_id and recommendations.
 
     Raises:
         HTTPException: If the diagnosis process fails unexpectedly.
@@ -34,7 +44,13 @@ def diagnose_project_start(payload: ProjectStartRequest) -> DiagnosisResponse:
         logger.info(
             f"Diagnosis completed - Score: {result.foundation_score}, Risk: {result.risk_level}"
         )
-        return result
+
+        # Generate a unique project_id and store the diagnosis result
+        project_id = str(uuid.uuid4())
+        _diagnosis_storage[project_id] = result
+        logger.info(f"Diagnosis stored with project_id: {project_id}")
+
+        return ProjectDiagnosisResponse(project_id=project_id, **result.model_dump())
     except ValueError as e:
         logger.error(f"Validation error in diagnosis: {str(e)}")
         raise HTTPException(
@@ -47,3 +63,28 @@ def diagnose_project_start(payload: ProjectStartRequest) -> DiagnosisResponse:
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="An unexpected error occurred during diagnosis",
         )
+
+
+@router.get("/{project_id}", response_model=ProjectDiagnosisResponse)
+def get_diagnosis(project_id: str) -> ProjectDiagnosisResponse:
+    """Retrieve a previously stored diagnosis result by project ID.
+
+    Args:
+        project_id: The unique identifier of the project diagnosis to retrieve.
+
+    Returns:
+        ProjectDiagnosisResponse: The stored diagnosis with project_id and recommendations.
+
+    Raises:
+        HTTPException: With status 404 if the project_id is not found.
+    """
+    if project_id not in _diagnosis_storage:
+        logger.warning(f"Diagnosis not found for project_id: {project_id}")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Diagnosis not found for project_id: {project_id}",
+        )
+
+    result = _diagnosis_storage[project_id]
+    logger.info(f"Retrieved diagnosis for project_id: {project_id}")
+    return ProjectDiagnosisResponse(project_id=project_id, **result.model_dump())
