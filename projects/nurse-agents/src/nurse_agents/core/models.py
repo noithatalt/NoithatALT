@@ -1,4 +1,10 @@
+from datetime import datetime, timezone
+
 from pydantic import BaseModel, Field
+
+
+def _utcnow() -> datetime:
+    return datetime.now(timezone.utc)
 
 
 class ProjectStartRequest(BaseModel):
@@ -15,6 +21,8 @@ class DiagnosisSummary(BaseModel):
     project_name: str = Field(..., description="Name of the project")
     foundation_score: int = Field(..., description="Score 30-100 indicating project foundation strength")
     risk_level: str = Field(..., description="Risk level: low, medium, or high")
+    created_at: datetime = Field(..., description="UTC timestamp when diagnosis was created")
+    updated_at: datetime = Field(..., description="UTC timestamp when diagnosis was last updated")
 
 
 class DiagnosisListResponse(BaseModel):
@@ -32,6 +40,8 @@ class DiagnosisResponse(BaseModel):
     strengths: list[str]
     missing_foundations: list[str]
     honest_advice: str
+    created_at: datetime = Field(default_factory=_utcnow)
+    updated_at: datetime = Field(default_factory=_utcnow)
 
 
 class ProjectDiagnosisResponse(BaseModel):
@@ -45,3 +55,5 @@ class ProjectDiagnosisResponse(BaseModel):
     strengths: list[str]
     missing_foundations: list[str]
     honest_advice: str
+    created_at: datetime = Field(..., description="UTC timestamp when diagnosis was created")
+    updated_at: datetime = Field(..., description="UTC timestamp when diagnosis was last updated")

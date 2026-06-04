@@ -56,10 +56,11 @@ def diagnose_project_start(payload: ProjectStartRequest) -> ProjectDiagnosisResp
         logger.info(f"Diagnosis stored with project_id: {project_id}")
 
         return ProjectDiagnosisResponse(project_id=project_id, **result.model_dump())
+
     except ValueError as e:
         logger.error(f"Validation error in diagnosis: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+            status_code=status.HTTP_422_UNPROCESSABLE_CONTENT,
             detail=f"Invalid project data: {str(e)}",
         )
     except Exception as e:
@@ -108,6 +109,8 @@ def list_diagnoses() -> DiagnosisListResponse:
             project_name=_project_names.get(pid, "unknown"),
             foundation_score=result.foundation_score,
             risk_level=result.risk_level,
+            created_at=result.created_at,
+            updated_at=result.updated_at,
         )
         for pid, result in _diagnosis_storage.items()
     ]
