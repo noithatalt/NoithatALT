@@ -1,6 +1,7 @@
 from datetime import datetime, timezone
+from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 
 def _utcnow() -> datetime:
@@ -42,6 +43,15 @@ class DiagnosisResponse(BaseModel):
     honest_advice: str
     created_at: datetime = Field(default_factory=_utcnow)
     updated_at: datetime = Field(default_factory=_utcnow)
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sync_timestamps(cls, data: Any) -> Any:
+        if isinstance(data, dict):
+            if "created_at" not in data and "updated_at" not in data:
+                now = _utcnow()
+                data = {**data, "created_at": now, "updated_at": now}
+        return data
 
 
 class ProjectDiagnosisResponse(BaseModel):

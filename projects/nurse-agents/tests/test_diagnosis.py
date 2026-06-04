@@ -1,8 +1,18 @@
+from datetime import datetime
+
 from fastapi.testclient import TestClient
 
 from nurse_agents.main import app
 
 client = TestClient(app)
+
+
+_BASE_PAYLOAD = {
+    "project_name": "base-project",
+    "summary": "Base payload reused across multiple tests.",
+    "target_user": "Test engineers",
+    "mvp": "Basic endpoint testing",
+}
 
 
 def test_project_start_diagnosis() -> None:
@@ -155,3 +165,81 @@ def test_validation_error_format() -> None:
     detail = body["error"]["details"][0]
     assert "field" in detail
     assert "message" in detail
+
+
+def test_timestamps_in_diagnosis_response() -> None:
+    """Test that created_at and updated_at are present and valid ISO-8601 timestamps."""
+    response = client.post("/diagnosis/project-start", json=_BASE_PAYLOAD)
+    assert response.status_code == 200
+    body = response.json()
+    assert "created_at" in body
+    assert "updated_at" in body
+    created_at = datetime.fromisoformat(body["created_at"])
+    updated_at = datetime.fromisoformat(body["updated_at"])
+    assert created_at == updated_at
+
+
+def test_timestamps_in_list_response() -> None:
+    """Test that list endpoint includes timestamps in each summary item."""
+    client.post("/diagnosis/project-start", json=_BASE_PAYLOAD)
+    response = client.get("/diagnosis")
+    assert response.status_code == 200
+    body = response.json()
+    assert body["total"] >= 1
+    item = body["items"][0]
+    assert "created_at" in item
+    assert "updated_at" in item
+    datetime.fromisoformat(item["created_at"])
+
+
+def test_list_pagination_limit() -> None:
+    """Test that limit query param restricts returned items while total stays accurate."""
+    for i in range(3):
+        client.post("/diagnosis/project-start", json={**_BASE_PAYLOAD, "project_name": f"page-project-{i}"})
+
+    response = client.get("/diagnosis?limit=2&offset=0")
+    assert response.status_code == 200
+    body = response.json()
+    assert len(body["items"]) == 2
+    assert body["total"] >= 3
+
+
+def test_list_pagination_offset() -> None:
+    """Test that offset skips the correct number of items."""
+    for i in range(3):
+        client.post("/diagnosis/project-start", json={**_BASE_PAYLOAD, "project_name": f"offset-project-{i}"})
+
+    all_response = client.get("/diagnosis?limit=100&offset=0")
+    all_ids = [item["project_id"] for item in all_response.json()["items"]]
+
+    offset_response = client.get("/diagnosis?limit=1&offset=1")
+    offset_ids = [item["project_id"] for item in offset_response.json()["items"]]
+    assert offset_ids[0] == all_ids[1]
+
+
+def test_put_diagnosis_updates_fields() -> None:
+    """Test that PUT re-runs diagnosis and updates fields, preserving created_at."""
+    create_response = client.post("/diagnosis/project-start", json=_BASE_PAYLOAD)
+    assert create_response.status_code == 200
+    project_id = create_response.json()["project_id"]
+    original_created_at = create_response.json()["created_at"]
+
+    new_payload = {
+        "project_name": "updated-project",
+        "summary": "Completely new focused summary for a lean startup with one target user.",
+        "target_user": "Solo founders",
+        "mvp": "Single landing page",
+    }
+    put_response = client.put(f"/diagnosis/{project_id}", json=new_payload)
+    assert put_response.status_code == 200
+    put_body = put_response.json()
+    assert put_body["project_id"] == project_id
+    assert put_body["created_at"] == original_created_at
+    assert "updated_at" in put_body
+
+
+def test_put_diagnosis_not_found() -> None:
+    """Test that PUT on unknown project_id returns 404."""
+    response = client.put("/diagnosis/00000000-0000-0000-0000-000000000000", json=_BASE_PAYLOAD)
+    assert response.status_code == 404
+    assert "not found" in response.json()["detail"].lower()
