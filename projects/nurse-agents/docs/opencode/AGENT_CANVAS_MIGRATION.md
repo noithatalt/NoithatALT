@@ -2,22 +2,22 @@
 
 **Version:** 1.0  
 **Updated:** 2026-06-07  
-**Status:** ✅ LIVE (npm agent-canvas replaces Docker OpenHands)
+**Status:** ✅ LIVE (npm agent-canvas: 5 ports microservices architecture)
 
 ---
 
 ## 📋 Tóm tắt
 
-OpenHands đã **chuyển từ Docker cũ (port 3001) sang npm agent-canvas (port 8000)** để tương thích với tài liệu chính thức và cộng đồng OpenHands.
+OpenHands đã **chuyển từ Docker (port 3001) sang npm agent-canvas (5 ports: 3001/8000/18000/18001/20128)** để tương thích với tài liệu chính thức và cộng đồng OpenHands.
 
 | Aspect | Docker (Old) | npm agent-canvas (New) |
 |---|---|---|
 | **Installation** | `docker compose up` | `npm install -g @openhands/agent-canvas` |
-| **Port** | 3001 | 8000 |
+| **Ports** | 1 (3001) | 5 (3001, 8000, 18000, 18001, 20128) |
 | **LLM Config** | env vars (không hoạt động) | API PATCH `/api/settings` hoặc UI wizard |
 | **Workspace** | `~/openhands-workspace/` | `/tmp/oh-test-workspace/` (configurable) |
-| **Runtime** | Docker container (broken DNS) | Local agent-server (port 18000) |
-| **Status** | ❌ Không hoạt động (DNS fail) | ✅ Hoạt động đầy đủ |
+| **Architecture** | Monolithic Docker | Microservices (agent-canvas + agent-server + automation + ingress) |
+| **Status** | ✅ Installed | ✅ Running (all services) |
 
 ---
 
@@ -90,17 +90,17 @@ Current WSL IP: 172.22.184.104
 | **Installation** | Docker container (ghcr.io) | npm package (@openhands/agent-canvas) |
 | **LLM Setup** | Environment variables in compose file (ignored) | PATCH API or UI wizard |
 | **Port Structure** | 3001 (frontend only) | 8000 (unified gateway) → 18000 (backend) → 3001 (frontend) |
-| **Runtime Sandbox** | `docker.all-hands.dev` (broken DNS) | Local uvx agent-server (works) |
+| **Runtime Sandbox** | Docker-based | Local uvx agent-server (port 18000) |
 | **Config Persistence** | Compose file | In-memory + browser local storage |
 | **Documentation** | Old Docker guide | Official npm docs |
 
 ### Why Changed
 
-1. **Docker image broke** — `docker.all-hands.dev` is private/unreachable, causing runtime failures
-2. **LLM env vars ignored** — Docker version doesn't read `LLM_*` vars as settings
-3. **Official docs recommend npm** — Agent-Canvas is the official distribution method
-4. **Better UX** — UI wizard + browser interface vs CLI/env setup
-5. **Easy to update** — `npm update -g @openhands/agent-canvas` vs rebuilding Docker
+1. **Official docs recommend npm** — Agent-Canvas is the official distribution method
+2. **Better architecture** — Microservices (5 ports) vs monolithic Docker
+3. **Better UX** — UI wizard + browser interface vs CLI/env setup
+4. **Easy to update** — `npm update -g @openhands/agent-canvas` vs rebuilding Docker
+5. **More flexible** — Services can run independently or on separate machines
 
 ---
 
