@@ -1,6 +1,10 @@
 """Test configuration — use in-memory SQLite so tests are isolated and fast."""
 
 import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).parent.parent / "scripts" / "arkon"))
 
 os.environ.setdefault("DB_PATH", ":memory:")
 

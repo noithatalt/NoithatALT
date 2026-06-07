@@ -20,6 +20,7 @@ Plan automation tasks          →  automation-planner
 Optimize AI usage costs        →  cost-optimizer
 Test in browser (Playwright)   →  browser-tester
 Learn / understand code        →  hermes-learning-coach
+Học sâu / advisor bên ngoài   →  nous-hermes  (read-only, text-only)
 ```
 
 ## Full Agent Catalog
