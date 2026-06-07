@@ -1,8 +1,41 @@
 # Source of Truth — nurse-agents + OpenCode
 
-**Last updated:** 2026-06-04
+**Last updated:** 2026-06-07  
+**Migration Note:** OpenHands → Agent-Canvas (2026-06-07). See [AGENT_CANVAS_MIGRATION.md](AGENT_CANVAS_MIGRATION.md)
 
 File này là điểm vào ngắn nhất để biết cần đọc file nào trước. Không đọc toàn bộ docs nếu task không cần.
+
+---
+
+## Mục tiêu tổng thể
+
+> Xây dựng OpenCode stack có khả năng thay thế claude.ai cho team nội bộ:
+> chat agent + knowledge base (Arkon) + monitoring + multi-provider LLM,
+> chạy hoàn toàn on-premise.
+>
+> **Quy tắc:** KHÔNG xóa / KHÔNG bỏ thứ gì đang có. Chỉ BUILD THÊM. Nếu cần xóa → HỎI TRƯỚC.
+
+### So sánh với claude.ai
+
+| Tính năng | claude.ai | Stack hiện tại | Trạng thái |
+|---|---|---|---|
+| Chat agent (TUI/CLI/Web) | ✅ | OpenCode v1.15.13 | ✅ DONE |
+| Multi-model routing | ✅ | 9router → One-API → Anthropic/OpenAI | ✅ DONE |
+| Local models (offline) | ❌ | Ollama 9 models | ✅ DONE (hơn claude.ai) |
+| Agent roles (15+) | ✅ Projects | 15 agents + 11 skills | ✅ DONE |
+| Knowledge base | ✅ Projects KB | Arkon (27 pages + monitoring) | ✅ DONE |
+| Tool use / MCP | ✅ | 12 MCP servers (disabled mặc định) | ⚠️ Có, cần bật |
+| Session + memory | ✅ | SQLite + agent-notes | ✅ DONE |
+| Monitoring pipeline | ❌ | Netdata + GLPI + systemd timer | ✅ DONE (hơn claude.ai) |
+| Artifacts / preview | ✅ | ❌ Chưa có | 🔴 Thiếu |
+| Web search tự động | ✅ | MCP researcher (manual) | 🟡 Cần bật mặc định |
+| Web UI | ✅ | `opencode web` | ✅ DONE |
+| Image vision | ✅ | Ollama llava | ✅ DONE |
+
+### Khoảng cách còn lại (ưu tiên build thêm)
+1. **Artifacts** — preview code/diagram trong UI → opencode web renderer
+2. **Web search mặc định** — enable researcher MCP mặc định
+3. **Projects UI** — Arkon đang giải quyết phần knowledge base
 
 ---
 
@@ -50,8 +83,15 @@ bash ~/projects/nurse-agents/scripts/opencode/full-healthcheck.sh
 
 ## Khi cần học / hiểu code
 
-→ Agent: `hermes-learning-coach`  
+→ Agent: `hermes-learning-coach` (internal, có thể delegate)  
+→ Agent: `nous-hermes` (external advisor, read-only — xem [nous-hermes-policy.md](nous-hermes-policy.md))  
 → Skill: `ai-learning`
+
+## Khi cần setup Agent-Canvas (AI coding agent)
+
+→ Đọc: [AGENT_CANVAS_MIGRATION.md](AGENT_CANVAS_MIGRATION.md)  
+→ Quick Start: `npm install -g @openhands/agent-canvas && agent-canvas`  
+→ Web UI: http://localhost:8000
 
 ---
 
@@ -59,11 +99,59 @@ bash ~/projects/nurse-agents/scripts/opencode/full-healthcheck.sh
 
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
-| OpenCode | ✅ v1.15.13 | 15 agents, 12 commands, 11 skills |
+| OpenCode | ✅ v1.15.13 | 16 agents (+ nous-hermes), 12 commands, 11 skills |
+| Nous Hermes | ✅ v0.15.1 installed | `~/.hermes/`, 2 profiles (telegram/coach), bridge port 18790, OpenClaw relay plugin active |
 | Proxy port 3000 | ✅ chạy | Anthropic-compatible |
 | Ollama port 11434 | ✅ chạy | 9 models |
 | nurse-agents API | ✅ | 15 tests pass, SQLite persistent |
 | MCP servers | ⚠️ disabled mặc định | Enable per task |
-| OpenHands | ✅ port 3001 | docker run, workspace ~/openhands-workspace |
+| Agent-Canvas | ✅ port 8000 | npm agent-canvas, LLM: 9router kr/claude-sonnet-4-agentic, workspace /tmp/oh-test-workspace |
 
 **Cập nhật trạng thái này** khi có thay đổi lớn về infrastructure.
+
+---
+
+## Arkon Data Ingestion Rule (V2.1.1)
+
+Wazuh, Netdata, and GLPI MUST NOT send data directly to Arkon.
+
+Only `arkon-summary-reporter` is allowed to send summarized reports to Arkon.
+
+Allowed flow:
+```
+Wazuh / Netdata / GLPI
+  -> local logs / local dashboards / local reports
+  -> sanitizer -> validator -> content-moderator -> approval-gate
+  -> arkon-summary-reporter
+  -> Arkon
+```
+
+Direct push, direct webhook, direct API sync, or raw log forwarding
+from Wazuh, Netdata, or GLPI to Arkon is FORBIDDEN.
+
+---
+
+## Wazuh RAM-Blocked Status (V2.1.1)
+
+Wazuh is currently RAM-BLOCKED and must remain DISABLED.
+
+```
+Wazuh status: DISABLED / RAM-BLOCKED / DEFERRED
+```
+
+Reason: Wazuh stack requires 6-10 GB RAM. Current WSL2 RAM is 15.6 GB shared
+with Windows host. Running Wazuh alongside OpenHands, One-API, Ollama, and
+nurse-agents API would push usage above WARN threshold (70%) or FAIL (85%).
+
+Phase C (Wazuh lab) is DEFERRED until:
+1. Additional RAM provisioned, OR
+2. Isolated resource environment confirmed.
+
+Active fallback mode:
+- Netdata local-only (when installed)
+- GLPI local-only (when installed)
+- Basic healthcheck scripts
+- Manual security log review
+- arkon-summary-reporter summary-only
+
+Phase 10 structure is preserved. Operating mode = lightweight fallback.
