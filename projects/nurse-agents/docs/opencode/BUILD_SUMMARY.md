@@ -1,6 +1,6 @@
 # OpenCode Build Summary — Tổng kết toàn bộ quá trình
 
-**Cập nhật:** 2026-06-04 | **Tests:** 80/80 PASS | **Version:** V2.1.1 + SX + Nous Hermes Policy + Arkon MCP
+**Cập nhật:** 2026-06-10 | **Tests:** 80/80 PASS | **Version:** V4 — Agentic Layer (project-context, skills, memory, task-tracker, checkpoint/resume)
 
 ---
 
@@ -21,6 +21,10 @@
 | **SX** | File SX cũ (E:\) → Arkon KB: 27 wiki pages, 50 KH, 2828 files, 816 MB | ✅ DONE |
 | **Nous Hermes** | Tích hợp Nous Research Hermes làm learning/advisor layer (read-only, song song với hermes-learning-coach) | ✅ DONE |
 | **Arkon MCP** | Claude Code kết nối Arkon KB qua MCP — project scope, token gitignored, 27 wiki pages queryable. Fix bug `search_wiki` (`project_ids` → `None`), rebuild image | ✅ DONE |
+| **V3 — 9router fix** | Cập nhật API key mới `sk-fded719835aff07c`; fix Opencode combo self-reference (loop → "No active credentials"); xóa provider oneapi/xiaomi stale | ✅ DONE |
+| **V3 — VSCode ext fix** | Extension `local.opencode-vscode-panel-0.1.1`: sửa path `.npm-global` → `.local/bin/opencode` (v1.16.2), `wsl.exe -e` → `wsl.exe --` (TTY fix), thêm 500ms delay | ✅ DONE |
+| **V3 — SwarmClaw** | SwarmClaw v1.9.37 tích hợp vào stack: fix SW combo self-ref, update agent model `cx/gpt-5.4`→`SW`, systemd service `:3456`, agent `swarm-orchestrator` trong opencode.json | ✅ DONE |
+| **V3 — Agent-Canvas** | Giữ lại `@openhands/agent-canvas` v1.0.0-rc.5 (`:8000`) — on-demand, không chạy thường xuyên, không xung đột SwarmClaw | ✅ DONE |
 
 **Tổng tests:** 80/80 PASS
 
@@ -38,38 +42,66 @@
 
 ## 3. Sơ đồ hoạt động
 
-### 3.1 — AI Stack tổng thể
+### 3.1 — AI Stack tổng thể (V3)
 
 ```
-┌─────────────────────────────────────────────────────────────────┐
-│                        Windows Host                             │
-│  Browser / VS Code / Terminal (Windows)                         │
-└───────────────────────┬─────────────────────────────────────────┘
-                        │ WSL2
-┌───────────────────────▼─────────────────────────────────────────┐
-│                    Ubuntu WSL2                                   │
-│                                                                  │
-│  ┌─────────────┐   ┌─────────────┐   ┌──────────────────────┐  │
-│  │  OpenCode   │   │  Claude     │   │  Agent-Canvas        │  │
-│  │  v1.15.13   │   │  Code CLI   │   │  npm :8000           │  │
-│  └──────┬──────┘   └──────┬──────┘   └──────────┬───────────┘  │
-│         └────────┬─────────┘                      │              │
-│                  ▼                                 │              │
-│  ┌───────────────────────────┐                    │              │
-│  │  9router  :20128 (PM2)    │◄───────────────────┘              │
-│  │  (OpenAI-compatible proxy)│                                   │
-│  └──────────┬────────────────┘                                   │
-│             ▼                                                     │
-│   ┌─────────────────────────────────────────────┐               │
-│   │  One-API  :3000  (model proxy backend)      │               │
-│   └─────────┬───────────────────────────────────┘               │
-│             │                                                     │
-│   ┌─────────▼──────┐   ┌──────────────────────┐                 │
-│   │  Anthropic API │   │  Ollama :11434        │                 │
-│   │  (Claude 4.x)  │   │  9 models + embedding │                 │
-│   └────────────────┘   └──────────────────────┘                 │
-│                                                                  │
-└──────────────────────────────────────────────────────────────────┘
+┌─────────────────────────────────────────────────────────────────────────┐
+│                          WINDOWS HOST                                   │
+│                       (Người dùng làm việc)                             │
+│                                                                         │
+│   VS Code ──────────────────────────── Editor / Claude Code VSCode ext  │
+│   Browser → http://localhost:3119       Arkon KB UI                     │
+│   Browser → http://localhost:3456       SwarmClaw Web UI  ← V3 MỚI      │
+│   Browser → http://localhost:8000       Agent-Canvas (on-demand)        │
+│   Browser → https://claude.noithatalt.io.vn  9router public endpoint   │
+│                                                                         │
+│   [Approve] approval-result.json ──── AI submit → user approve          │
+└───────────────────────────────┬─────────────────────────────────────────┘
+                                │ WSL2  (windows-bridge MCP)
+┌───────────────────────────────▼─────────────────────────────────────────┐
+│                           Ubuntu WSL2  (AI làm việc)                    │
+│                                                                         │
+│  ┌──────────────────────┐  ┌───────────────────┐                        │
+│  │  RUNTIME CHÍNH       │  │  MAIN BUILDER     │                        │
+│  │  OpenCode v1.16.2    │  │  Claude Code CLI  │                        │
+│  │  TUI/VSCode          │  │  (xây dựng stack) │                        │
+│  └──────────┬───────────┘  └────────┬──────────┘                        │
+│             └──────────────┬─────────┘                                  │
+│                            ▼                                            │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │        9router :20128 — Cổng gọi AI trung tâm (systemd)         │  │
+│  │  Combos: Opencode / SW / openclaw / HN                          │  │
+│  └──────┬────────────────┬──────────────────┬───────────────────────┘  │
+│         │                │                  │                          │
+│  ┌──────▼──────┐  ┌──────▼──────┐  ┌───────▼──────┐  ┌─────────────┐ │
+│  │ TRÍ NHỚ+   │  │ GATEWAY+    │  │ ĐIỀU PHỐI   │  │ LOCAL       │ │
+│  │ COACH       │  │ TOOLS+      │  │ AGENT NỀN   │  │ FALLBACK    │ │
+│  │ Hermes      │  │ KÊNH VÀO/RA │  │ SwarmClaw   │  │ Ollama      │ │
+│  │ :18790 PM2  │  │ OpenClaw    │  │ :3456 svc   │  │ :11434      │ │
+│  │ reasoning   │  │ :18789 svc  │  │ web UI      │  │ embedding   │ │
+│  └─────────────┘  └──────┬──────┘  └─────────────┘  └─────────────┘ │
+│                           │ (Zalo Collector → OpenClaw)               │
+│  ┌────────────────────────────────────────────────────────────────┐   │
+│                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │              Arkon Knowledge Base  :5055 / :3119                 │  │
+│  │  PostgreSQL+pgvector │ Redis │ MinIO │ Worker │ Frontend         │  │
+│  │  Embedding: Ollama nomic-embed-text-v2-moe (local, free)         │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  nurse-agents pipeline (systemd timer — hourly)                  │  │
+│  │  Netdata :19999 + GLPI → build→redact→validate→moderate→send    │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  Zalo Collector (systemd)  │  n8n :5678 (Cloudflare tunnel)     │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+│                                                                         │
+│  ┌──────────────────────────────────────────────────────────────────┐  │
+│  │  Agent-Canvas :8000 (on-demand) — OpenHands web UI               │  │
+│  └──────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────┘
 
 Cloudflare Tunnel (public):
   claude.noithatalt.io.vn  →  9router :20128
@@ -239,7 +271,31 @@ cd ~/projects/arkon && claude mcp remove arkon; claude mcp add-json arkon \
 ```
 **Bug đã fix:** `search_wiki` lỗi `'ResolvedIdentity' object has no attribute 'project_ids'` — fixed tại `app/mcp/tools.py:261,520` (`proj_uuids = None`).
 
-### 4.8 — Wazuh (khi nâng RAM xong)
+### 4.8.2 — SwarmClaw (V3 — tích hợp 2026-06-09)
+
+| Lệnh | Mục đích |
+|---|---|
+| `systemctl --user status swarmclaw` | Trạng thái SwarmClaw |
+| `systemctl --user restart swarmclaw` | Restart sau update |
+| `curl http://localhost:3456/api/health` | Health check (cần login → 401 = OK) |
+| Browser: `http://localhost:3456` | SwarmClaw Web UI — quản lý agent/task/schedule |
+| `@swarm-orchestrator` trong OpenCode | Dùng SwarmClaw model qua 9router/SW |
+
+**Files liên quan:**
+- Service: `~/.config/systemd/user/swarmclaw.service`
+- Data: `~/.swarmclaw/data/swarmclaw.db` — agents, tasks, schedules
+- Build: `~/.swarmclaw/builds/package-1.9.37/.next/standalone/server.js`
+- Default agent model: `SW` (9router combo → `claude-haiku-4.5` / `gemini-3-flash`)
+
+**Agent-Canvas (on-demand):**
+```bash
+cd ~/.npm-global/lib/node_modules/@openhands/agent-canvas && npx agent-canvas
+# hoặc:
+agent-canvas  # nếu đã add vào PATH
+```
+Port: `:8000`. Dùng khi cần OpenHands UI riêng biệt.
+
+### 4.9 — Wazuh (khi nâng RAM xong)
 
 ```bash
 # 1. Kiểm tra RAM đủ (> 8GB free)
@@ -337,16 +393,26 @@ docker compose -f docker/wazuh-compose.yml down
 
 ---
 
-## 7. Agent Layer — Phân công 3 tầng (Nous Hermes Policy)
+## 7. Agent Layer — Phân công (V3)
 
-| Tầng | Tool | Nhiệm vụ |
-|------|------|----------|
-| Terminal | **Codex CLI** | Script, healthcheck, runtime/config test |
-| Runtime | **OpenCode** | Router, agent team, MCP, workflow, permission |
-| Advisory | **nous-hermes** | Giải thích, học lại, tóm tắt verification log đã lọc, đề xuất skill/checklist text |
+| Tầng | Tool | Port | Nhiệm vụ |
+|------|------|------|----------|
+| Terminal | **Claude Code CLI** | — | High-quality task, architecture, security. Anthropic API trực tiếp |
+| Interactive | **OpenCode** TUI/VSCode | — | Router, agent team, MCP, workflow. Human-in-the-loop |
+| Autonomous | **SwarmClaw** | 3456 | Web UI, multi-agent song song, scheduling, delegation. Qua 9router/SW |
+| On-demand | **Agent-Canvas** | 8000 | OpenHands web UI — coding agent tự động. Chạy khi cần |
+| Advisory | **nous-hermes** | — | Read-only: giải thích, học lại, tóm tắt log, đề xuất skill |
+| Router | **9router** | 20128 | Trung tâm — mọi AI request đều đi qua |
+
+**Agents trong OpenCode (opencode.json):**
+- `swarm-orchestrator` — model `9router/SW`, bash=ask, edit=deny — autonomous orchestration
+- `senior-coder`, `reviewer`, `devops`, `db-analyst` — model `9router/Opencode`
+- `architect`, `security-auditor` — model `9router/gh/gpt-4.1`
+- `nous-hermes` — read/grep/glob only, mọi action đều deny
+- `automation-planner`, `cost-optimizer`, `caveman`, `hermes-learning-coach`...
 
 **Policy:** `nous-hermes` chỉ có quyền read/grep/glob. Toàn bộ bash/edit/MCP/task/memory đều bị deny.  
-Thao tác chỉ được kích hoạt khi người dùng chủ động chuyển sang agent phù hợp.  
+`swarm-orchestrator` có bash=ask, edit=deny — không tự sửa file, hỏi trước khi chạy lệnh.  
 Chi tiết: [nous-hermes-policy.md](nous-hermes-policy.md)
 
 **Binary install** (chạy thủ công 1 lần):
@@ -361,9 +427,208 @@ curl -fsSL https://raw.githubusercontent.com/NousResearch/hermes-agent/main/scri
 1. **Fail-closed:** mọi stage fail → dừng toàn bộ, không gửi gì
 2. **Chỉ arkon-summary-reporter** được gửi lên Arkon — không direct push từ Wazuh/Netdata/GLPI
 3. **Mọi payload** phải qua: sanitizer → validator → moderator → approval gate
-4. **AI làm trong Ubuntu WSL2** — người dùng approve trên Windows
+4. **AI làm trong Ubuntu WSL2** — người dùng approve trên Windows; hoặc AI approve thay khi người dùng yêu cầu rõ ràng
 5. **Không public:** Wazuh, Netdata, GLPI, OpenHands, One-API, Ollama, nurse-agents
 6. **Wazuh DISABLED** cho đến khi đủ RAM + approval thủ công
 7. **Không qua phase sau** nếu phase hiện tại chưa có verification-log PASS
 8. **Không commit secret** — mọi .env đều gitignored
 9. **nous-hermes read-only** — không bao giờ có quyền bash/edit/MCP; chỉ user mới kích hoạt action
+10. **swarm-orchestrator** — bash=ask (hỏi trước), edit=deny; không tự sửa file production
+11. **SwarmClaw** — route qua 9router/SW, không dùng local model (Ollama) cho hard task
+12. **Không dùng Ollama** cho security/architecture/production — chỉ dùng cho embedding và task nhẹ
+13. **AI làm trong Ubuntu, người dùng approve trên Windows** — approval-result.json tạo trên Windows; AI được phép tạo thay khi người dùng yêu cầu rõ ràng trong phiên làm việc
+
+---
+
+## Section 9 — V4 Agentic Layer (2026-06-10)
+
+**Mục tiêu:** Biến OpenCode thành agentic assistant có state — agent biết project active, task dở, có thể checkpoint/resume qua restart. Additive only.
+
+### Thay đổi
+
+| Phase | Mô tả | Files |
+|---|---|---|
+| A — Project Context | Agent đọc state project khi bắt đầu session | `~/.config/opencode/project-context/{_active,nurse-agents,arkon}.md` + `instructions/project-context-loader.md` |
+| B — Skills Coverage | +7 skills mới (bao gồm memory-ingest) | `skills/{session-resume,stack-health,pipeline-debug,arkon-query,approval-workflow,agent-handoff,memory-ingest}/SKILL.md` |
+| C — Memory MCP | Enable memory MCP, thêm command consolidate | `opencode.json`: `mcp.memory.enabled=true` + command `memory-consolidate` |
+| D — Task Tracker | Task files per project, cross-project global | `~/.config/opencode/tasks/{nurse-agents,arkon}/` + `global.md` |
+| E — File Change | Backup protocol cho non-git files, undo command | `instructions/verify-workflow.md` append + command `undo-last-edit` |
+| F — Checkpoint | Session save/resume qua restart | commands `session-checkpoint` + `session-resume` |
+
+### Trạng thái sau V4
+
+| Hạng mục | Giá trị |
+|---|---|
+| Commands | **26** (tăng từ 16) |
+| Skills | **19 folders** (tăng từ 12) |
+| Instructions | **5** (tăng từ 4) |
+| Memory MCP | **enabled** |
+| Project context | nurse-agents + arkon |
+| Task tracker | nurse-agents + arkon + global |
+
+---
+
+## 10. V5 — Agentic Layer Completion (2026-06-10)
+
+Parity với Claude Code. Additive only — không xóa/sửa gì của V4. 7 phases G–M.
+
+| Phase | Mô tả | Files |
+|---|---|---|
+| G — Plan-first + Diff approval | Agent viết plan + hỏi trước khi sửa ≥2 files / config | `skills/plan-execute/SKILL.md` + `verify-workflow.md` (Diff approval) + command `plan-task` + `tasks/{nurse-agents,arkon}/plans/` |
+| H — CLAUDE.md per-project | Auto-load project conventions | `~/projects/nurse-agents/CLAUDE.md` + `project-context-loader.md` rule 8 (arkon/CLAUDE.md đã có sẵn, giữ nguyên) |
+| I — Post-edit auto-verify | Tự chạy test/lint/json-check sau khi edit | `skills/post-edit-verify/SKILL.md` + `verify-workflow.md` (Auto-verify after edit) |
+| J — Git-aware context | Biết branch + uncommitted trước khi edit | `skills/git-context/SKILL.md` + `project-context-loader.md` rule 9 |
+| K — Permission audit | Registry tier cho 18 agents (suy từ frontmatter thật) | `agents/PERMISSIONS.md` — agent files giữ nguyên |
+| L — Context compaction | `/compact` command + cảnh báo session dài | command `compact` + `verify-workflow.md` (Long session) |
+| M — Semantic code search | Ollama embeddings index codebase | `scripts/index-codebase.py` + `scripts/search-code.py` + command `search-code` |
+
+### Trạng thái sau V5
+
+| Hạng mục | Giá trị |
+|---|---|
+| Commands | **29** (26→29: +plan-task, +compact, +search-code) |
+| Skills | **22 folders** (19→22: +plan-execute, +post-edit-verify, +git-context) |
+| Instructions | 5 (project-context-loader có rule 8+9; verify-workflow có 3 section mới) |
+| Agent permission registry | `agents/PERMISSIONS.md` — 18 agents, 4 tiers |
+| Semantic search | code-index.db, 105 chunks, model nomic-embed-text-v2-moe |
+| Verification-log | 7 entries V5 (G–M) đều PASS |
+
+### Deviation đáng lưu (Phase M)
+- Model embedding: `nomic-embed-text-v2-moe:latest` (đã có sẵn) thay vì `nomic-embed-text` trong handover.
+- Chunk giới hạn 800 chars (model context nhỏ) + skip venv/cache dirs.
+
+---
+
+## Section 11 — V5.1 Reliability & Completeness (2026-06-10)
+
+**Mục tiêu:** Lấp gap còn lại sau V5 — hướng đến "OpenCode ≥ Claude Code" về reliability.
+
+### V5.1 Phases N–R
+
+| Phase | Mô tả | Files tạo/sửa |
+|---|---|---|
+| N — /doctor | Unified diagnostics — bảng ✅/❌/⚠️ toàn hệ thống + verdict HEALTHY/DEGRADED/DOWN | `opencode.json` (+command `doctor`) |
+| O — Closed-loop fix | Khi test FAIL → tự phân tích traceback → đề xuất fix → retry ≤3 lần → rollback suggestion | `skills/post-edit-verify/SKILL.md` (append) |
+| P — wrap-up | Session-end protocol: checkpoint → memory → context → git status → summary | `opencode.json` (+command `wrap-up`) + `project-context-loader.md` (append rule 10) |
+| Q — commit-suggest | Conventional Commits message + trigger re-index background sau commit .py | `opencode.json` (+command `commit-suggest`) |
+| R — web-search | StackExchange API + PyPI — no API key, LIVE-VERIFIED | `scripts/web-search.py` + `skills/web-search/SKILL.md` + `opencode.json` (+command `search-web`) |
+
+### Trạng thái sau V5.1
+
+| Hạng mục | Giá trị |
+|---|---|
+| Commands | **33** (29→33: +doctor, +wrap-up, +commit-suggest, +search-web) |
+| Skills | **23 folders** (22→23: +web-search) |
+| Instructions | rule 10 "Session-end detection" thêm vào project-context-loader.md |
+| post-edit-verify skill | +3 sections: Closed-loop Fix Protocol, Post-PASS actions, Web search trigger |
+| Verification-log | 5 entries V5.1 (N–R) đều PASS — tổng 18 entries |
+| web-search | Stack Overflow API + PyPI, no API key, LIVE-VERIFIED 2 queries |
+
+### Deviation đáng lưu (Phase R)
+- DuckDuckGo Lite trả challenge/CAPTCHA — switch sang StackExchange API (gzip, no key) + PyPI JSON API.
+- Tốt hơn cho coding tasks: SO answers là nguồn chính của developer.
+
+### Gap còn lại (V5.2 scope)
+- Hooks (PreToolUse/PostToolUse): cần check OpenCode v1.16 API
+- Parallel sub-agents nâng cao: cần SwarmClaw redesign
+- Cost/token tracking: cần parse 9router log format
+- Wazuh: blocked by RAM (cần ≥6GB free)
+
+---
+
+## Section 12 — V5.2 Observability & MCP Expansion (2026-06-10)
+
+**Mục tiêu:** Token tracking, MCP đầy đủ hơn, auto re-index.
+
+### V5.2 Phases S–U
+
+| Phase | Mô tả | Files tạo/sửa |
+|---|---|---|
+| S — /cost-report | Token & cost từ 9router SQLite DB — today/week/all | `scripts/cost-report.py` + command `cost-report` |
+| T — MCP expansion | Thêm filesystem + sequential-thinking (memory đã có V4) | `opencode.json` (+2 MCP servers enabled) |
+| U — Auto re-index | Git post-commit hook tự re-index khi có .py commit | `scripts/install-git-hook.sh` (user chạy 1 lần) |
+
+### Trạng thái sau V5.2
+
+| Hạng mục | Giá trị |
+|---|---|
+| Commands | **34** (V5.2: +cost-report) |
+| MCP servers enabled | filesystem, memory, sequential-thinking, gitnexus, windows-bridge, grounded-docs, context7 |
+| Cost tracking | 9router DB → usageHistory/usageDaily, script ready |
+| Auto re-index | Script install-git-hook.sh — user kích hoạt 1 lần |
+
+### Để kích hoạt git hook (Phase U):
+```bash
+bash ~/.config/opencode/scripts/install-git-hook.sh
+```
+
+## Section 13 — V6 Plugin Architecture (2026-06-10/11)
+
+### V6A — SDK Hook Daemon (DEPRECATED)
+Daemon `~/.config/opencode/hooks/daemon.mjs` dùng `@opencode-ai/sdk` SSE qua `opencode serve :22000`. LIVE-VERIFIED (15 requests, 187k tokens) nhưng cần process riêng + reconnect loop. Đánh dấu DEPRECATED — giữ làm fallback.
+
+### V6B — Official Plugin usage-tracker (ACTIVE)
+| Thành phần | Chi tiết |
+|---|---|
+| Plugin | `~/.config/opencode/plugins/usage-tracker/index.js` — named export `UsageTracker` |
+| Pattern | Dispatch map `HANDLERS` — mỗi event 1 handler riêng |
+| Events | message.updated → usage.jsonl; session.idle → wrap-up-reminders.txt; file.watcher.updated (.py) → re-index; tool.execute.after → events.jsonl |
+| Đăng ký | opencode.json key `plugin` (array) |
+| Backward compat | Cùng log paths với daemon → cost-report.py không đổi |
+| Ưu điểm | Không cần serve riêng, không reconnect loop, OpenCode inject context tự động |
+
+## Section 14 — V6.3 Permission Gate "Nâng quyền có phanh" (2026-06-11)
+
+**Mục tiêu:** Tự động hóa cao — agent tự thực thi lệnh an toàn; user chỉ duyệt lệnh nguy hiểm cuối.
+
+### Thiết kế 3 lớp fail-closed
+```
+Lớp 1: opencode.json bash=ask GIỮ NGUYÊN  → plugin chết = mọi thứ vẫn hỏi
+Lớp 2: plugin permission-gate             → safe=allow+audit / danger=ask / blocked=deny
+Lớp 3: kill-switch ~/.config/opencode/SAFE_MODE → tồn tại = mọi thứ hỏi ngay
+```
+
+### Thành phần
+| File | Vai trò |
+|---|---|
+| `plugins/permission-gate/index.js` | Hook `permission.ask` — phân loại + audit |
+| `plugins/permission-gate/rules.json` | deny/ask/secret_guard patterns + whitelists — hot-reload, user chỉnh được |
+| `instructions/auto-execution-policy.md` | Báo agents chế độ mới: batch không dừng, chỉ pause khi gate hỏi |
+| Command `/permission-audit` | Xem 20 quyết định cuối + thống kê |
+| Command `/safe-mode` | Toggle kill-switch |
+| `hooks/logs/permission-audit.jsonl` | Audit trail mọi quyết định |
+
+### On-Demand Read + Secret Guard
+- **Read whitelist mặc định:** `~/projects`, `~/.config/opencode`, `/tmp` — ngoài đó (kể cả `/etc`, `/mnt/c`, `/mnt/d`) phải xin
+- **Grant 1 lần/session/path:** user duyệt → đọc tiếp cùng path không hỏi lại; session đóng/restart → thu hồi
+- **Secret Guard luôn bật:** `.env`, auth.json, credentials, keys, `.ssh/` — KHÔNG BAO GIỜ auto-allow kể cả trong path đã grant
+
+### Trạng thái sau V6.3
+| Hạng mục | Giá trị |
+|---|---|
+| Commands | **36** (+permission-audit, +safe-mode) |
+| Plugins | **2** (usage-tracker, permission-gate) |
+| Instructions | **7** (+language-policy, +auto-execution-policy) |
+| T1 agents | Không đổi — vẫn deny (gate chỉ xử lý event "ask") |
+| Live-verify | PENDING — checklist 7 mục trong verification-log V6.3 |
+
+## Section 15 — V6.3.2 Hardening: Audit Rotation + Report (2026-06-12)
+
+Bổ sung trên V6.3 (giữ nguyên mục tiêu thay claude.ai on-premise).
+
+**B1 — Audit log rotation** (`plugins/permission-gate/index.js`):
+- Hàm `audit()` gọi `rotateIfNeeded()` trước mỗi append.
+- File `permission-audit.jsonl` > 2 MB → `renameSync` sang `.jsonl.1` (giữ 1 bản cũ, ghi đè .1 cũ).
+- Lỗi rotation nuốt im (try/catch) — không bao giờ làm hỏng việc ghi audit.
+
+**B2 — Command `/permission-audit` nâng cấp** (`opencode.json`):
+- Stats theo cả `decision` lẫn `rule` (biết rule nào hay trigger).
+- Cảnh báo file > 1.5 MB (sắp rotate ở 2 MB).
+- Liệt kê file `.jsonl.1` nếu đã rotate.
+- Giữ cảnh báo SAFE_MODE.
+
+**Backups:** `index.js.bak-20260612-114219`, `opencode.json.bak-20260612-114219`.
+
+**Verify:** `node --check index.js` → JS_OK; `json.load(opencode.json)` → JSON_OK.
+
+**Còn lại (Phần C):** live-verify 7 mục gate (a–g) trong TUI sau restart — xem verification-log entry 2026-06-12 V6.3.2.

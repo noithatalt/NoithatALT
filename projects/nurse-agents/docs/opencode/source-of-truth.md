@@ -100,7 +100,7 @@ bash ~/projects/nurse-agents/scripts/opencode/full-healthcheck.sh
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
 | OpenCode | ✅ v1.15.13 | 16 agents (+ nous-hermes), 12 commands, 11 skills |
-| Nous Hermes | ✅ v0.15.1 installed | `~/.hermes/`, 2 profiles (telegram/coach), bridge port 18790, OpenClaw relay plugin active |
+| Nous Hermes | ✅ v0.16.0 "bộ não" | `~/.hermes/`, 2 profiles (telegram/coach), model HN, bridge :18790 systemd (queue drain 60s), gateway systemd (cron+hooks), 2 cron jobs (memory digest 08:00, healthcheck 07:30), skills custom, dashboard on-demand `hermes dashboard` :9119 |
 | Proxy port 3000 | ✅ chạy | Anthropic-compatible |
 | Ollama port 11434 | ✅ chạy | 9 models |
 | nurse-agents API | ✅ | 15 tests pass, SQLite persistent |
