@@ -1,0 +1,117 @@
+# Home repo containment
+#
+# This home directory is not a normal project repo. Ignore new files by
+# default so credentials, runtime data, caches, and nested projects are not
+# accidentally staged from /home/adminthanhluan.
+*
+!.gitignore
+
+# Personal/system secrets
+.env
+.env.*
+*.env
+*.key
+*.pem
+*.crt
+*.p12
+*.pfx
+*token*
+*secret*
+*credential*
+
+# Cloud and service credentials
+.aws/
+.aws.bak/
+.azure/
+.docker/
+.cloudflared/
+.n8n/
+.ollama/
+.openwebui/
+.openzca/
+.pm2/
+.webui_secret_key
+config.yml
+
+# Shell/editor/user state
+.bash_history*
+.bashrc.bak*
+.lesshst
+.viminfo
+.wget-hsts
+.selected_editor
+.sudo_as_admin_successful
+.motd_shown
+.landscape/
+.lbdb/
+
+# AI agent runtime data
+.aider*
+.claude/.credentials.json
+.claude/settings.local.json
+.codex/
+.config/
+.openclaw/agents/
+.openclaw/backups/
+.openclaw/backup*/
+.openclaw/canvas/
+.openclaw/completions/
+.openclaw/credentials/
+.openclaw/cron/
+.openclaw/devices/
+.openclaw/diary/
+.openclaw/dream_diary/
+.openclaw/exec-approvals.json
+.openclaw/flows/
+.openclaw/gateway-auth-token.txt
+.openclaw/gateway.systemd.env
+.openclaw/identity/
+.openclaw/logs/
+.openclaw/media/
+.openclaw/memory/
+.openclaw/node.json
+.openclaw/nodes/
+.openclaw/npm/
+.openclaw/openclaw.json.*
+.openclaw/plugins/
+.openclaw/restart-sentinel*.tmp
+.openclaw/tasks/
+.openclaw/telegram/
+.openclaw/update-check.json
+.openclaw/workspace/
+.openclaw/workspace_TongHop/
+
+# Generated indexes and caches
+.gitnexus/
+.cache/
+.local/
+.npm/
+.npm-global/
+.nvm/
+node_modules/
+
+# Backups, logs, downloads, generated files
+ai_backups/
+ollama-models/
+*.bak
+*.backup
+*.save
+*.tmp
+*.log
+*.deb
+*.png
+
+# Local project/runtime folders under home
+aider-test/
+claw_official/
+go/
+n8n-docker/
+openclaw-debug-check/
+searxng/
+workspace/
+
+# Ad-hoc prompt/output files
+Hey. I just came online. Who am I? Who are you?
+What are the current configuration settings?
+fix Telegram tool issue and session config
+show current settings
