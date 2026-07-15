@@ -632,3 +632,100 @@ Bổ sung trên V6.3 (giữ nguyên mục tiêu thay claude.ai on-premise).
 **Verify:** `node --check index.js` → JS_OK; `json.load(opencode.json)` → JSON_OK.
 
 **Còn lại (Phần C):** live-verify 7 mục gate (a–g) trong TUI sau restart — xem verification-log entry 2026-06-12 V6.3.2.
+
+---
+
+## Section 16 — V7 Agentic Operating System, 5 lớp + root.md bảo trì (2026-07-11)
+
+**Mục tiêu:** tổ chức toàn bộ OpenCode config thành 5 lớp lõi-ổn-định→vỏ-thay-đổi-nhanh (Identity → Rules&Hooks → Skills → Agents → Tools), kèm `root.md` lịch bảo trì chống thối rữa hệ thống. 8 phase A→H, mỗi phase có entry PASS riêng trong `verification-log.md` (đọc chi tiết đầy đủ ở đó — mục này chỉ tóm tắt).
+
+### Phase A — Backup + Backfill docs
+Backup toàn bộ config (`~/opencode-config-backup-20260711-012755.tar.gz`), archive 26 file `.bak` rác, backfill 3 việc đã làm nhưng chưa ghi docs (healthcheck-fix 22/06, V6.4 Windows-read 04/07, MCP-fix 05/07).
+
+### Phase B — Lớp 1: Identity (`AGENTS.md`)
+Tạo `~/.config/opencode/AGENTS.md` — file danh tính trung tâm (trước đó KHÔNG tồn tại, identity phân mảnh trong 7 file `instructions/`). Live-test issue #22020 (global AGENTS.md có bị project AGENTS.md che không) → **KHÔNG dính**.
+
+**Phát hiện quan trọng nhất của toàn bộ V7:** live-test xác nhận **issue #7006 CONFIRMED** — hook `permission.ask` KHÔNG BAO GIỜ được OpenCode trigger trên v1.17.15. Toàn bộ permission-gate V6.3/V6.3.2/V6.4 build xung quanh hook này **chưa từng thực sự chặn/hỏi gì** — audit log chỉ ghi được dòng `startup`.
+
+### Phase C — Lớp 2: Rules & Hooks (gate v2)
+Viết lại `plugins/permission-gate/index.js` từ đầu — chuyển toàn bộ enforcement từ `permission.ask` (chết) sang `tool.execute.before` (throw=chặn, xác nhận LIVE bằng probe plugin trước khi build thật) + `tool.execute.after` (audit). Args shape xác nhận live: `bash`→`args.command`, `read`/`edit`→`args.filePath`, MCP filesystem→`args.path`.
+
+Thiết kế mới (quyết định user): ask-list cũ (sudo/git push/kill/crontab...) bỏ khỏi gate — để `permission.bash="ask"` per-agent (đã hoạt động, không dính #7006) tự lo. `secret_guard` nâng từ "ask" (chết) → **deny cứng**. Thêm git-push secret scan.
+
+**Bug bảo mật phát hiện + vá:** deny-list kế thừa v1 có lỗ hổng — `rm -rf ~/projects`, `rm -rf $HOME`, `rm -rf /home/...` đều LỌT QUA (chỉ chặn đúng `/` và `~/` trần). Vá 1 pattern, verify isolated 20/20 PASS không false-positive.
+
+**Live-verify end-to-end thật:** gate v2 chặn thành công đọc file `.env` trong project (agent thấy đúng lỗi, audit ghi `deny/secret-guard`); lệnh bình thường vẫn chạy + audit `allow`. Đây là lần đầu tiên gate thực sự chặn được gì kể từ V6.3.
+
+### Phase D — Lớp 3: Skills (23→25, chuẩn hóa native)
+9 skill thiếu frontmatter → bổ sung. 1 file lẻ (`caveman-gate.md`) → cấu trúc folder chuẩn. Gộp 1 cặp trùng thật (`security-audit`→archive vào `security-review`) — **quyết định KHÔNG gộp** `workflow-plan`/`plan-execute`/`review-plan` như dự tính ban đầu, vì đọc kỹ thấy đây là 3 giai đoạn khác nhau, không trùng. +3 skill CLI mới (`github-cli`, `db-cli`, `browser-cli`) thay MCP disabled tương ứng. Verify: 25/25 PASS frontmatter+regex.
+
+### Phase E — Lớp 4: Agents (18→16, đồng bộ)
+Archive 3 legacy (`coder`/`db-readonly`/`planner`, đã tự `disable:true`). Fix 2 mismatch tìm thấy từ khảo sát: `swarm-orchestrator` có entry json nhưng thiếu file `.md` (tạo file khớp permission có sẵn); `content-moderator` có file nhưng file KHÔNG có frontmatter YAML + thiếu entry json (sửa cả 2). `PERMISSIONS.md` viết lại với bảng model tập trung (đổi model mới chỉ sửa 1 chỗ).
+
+### Phase F — Lớp 5: Tools (CLI + bug command-shadowing)
+Cài playwright chromium (verify thật: screenshot chạy OK, không cần sudo). psql/mysql client cần sudo password tương tác (môi trường agent không có) — user tự chạy khi tiện.
+
+**Bug thật phát hiện (không phải "trùng lặp vô hại" như khảo sát ban đầu):** `commands/agent-health.md` và `commands/cost-report.md` **ngầm che khuất** bản định nghĩa tốt hơn trong `opencode.json → command{}` cùng tên. Xác nhận bằng test thật `opencode run --command X` — file `.md` luôn thắng. Bản inline `cost-report` (gọi script thật `cost-report.py`, build từ V5.2-S) và `agent-health` (health audit đầy đủ) **CHƯA BAO GIỜ CHẠY ĐƯỢC** cho tới khi archive 2 file che khuất này. Verify lại: cả 2 command giờ chạy đúng bản inline.
+
+### Phase G — root.md (AI OS Maintenance Schedule)
+Tạo `root.md` (4 mục: rà soát định kỳ / quản lý tài nguyên / quy trình sửa lỗi A-B-C-D-E-V-O / chống thối rữa — có ghi bẫy command-shadowing từ Phase F), `maintenance-state.json` (5 hạng mục + chu kỳ), `scripts/check-maintenance.sh`. Đăng ký cả `root.md` và `AGENTS.md` vào `instructions[]` để load mỗi phiên.
+
+**Live-verify thật:** hỏi agent session mới (không gợi ý gì) nêu chính xác acronym quy trình sửa lỗi → trả lời đúng "A-B-C-D-E-V-O" — xác nhận cơ chế nạp instructions hoạt động cho file mới.
+
+### Phase H — Verify tổng
+| Hạng mục | Kết quả |
+|---|---|
+| opencode.json / rules.json / maintenance-state.json | JSON_OK cả 3 |
+| permission-gate v2 | `node --check` JS_OK |
+| check-maintenance.sh | `bash -n` SYNTAX_OK |
+| Skills | 25/25 PASS (frontmatter+regex) |
+| Agents | 16 file (đúng số Phase E) |
+| serve | http=200 |
+| Arkon / 9router / swarmclaw | healthy / 307 / active |
+| 4 skill V5 quan trọng | còn nguyên (plan-execute, post-edit-verify, git-context, session-resume) |
+| root.md load thật | LIVE-VERIFIED (agent trả lời đúng acronym không gợi ý) |
+
+### Tổng kết trạng thái sau V7
+| Hạng mục | Trước V7 | Sau V7 |
+|---|---|---|
+| Identity file | Không có | `AGENTS.md` (mới) |
+| Permission-gate | Dead code (`permission.ask`, #7006) | Hoạt động thật (`tool.execute.before`, live-verified) |
+| Skills | 23 (14 thiếu frontmatter, 1 file lẻ) | 25 (100% chuẩn native) |
+| Agents | 18 (3 legacy, 2 mismatch) | 16 (đồng bộ, không mismatch) |
+| Commands che khuất | 2 command bị che (không ai biết) | Fixed, verify chạy đúng bản tốt hơn |
+| Bảo trì | Không có lịch | `root.md` + state tracking + check script |
+
+**Files chính:** `AGENTS.md`, `root.md`, `maintenance-state.json`, `scripts/check-maintenance.sh`, `agents/swarm-orchestrator.md`, `plugins/permission-gate/index.js` (v2), 3 skill CLI mới. Đầy đủ backup mỗi bước tại `~/.config/opencode/*.bak-*` và `~/.local/share/opencode-archive/`.
+
+**Không đụng (đúng cam kết):** `start-daemon.sh`/`daemon.mjs` (systemd đang dùng thật), `language-policy.md`+6 instructions cũ, 4 MCP đang bật, `bash=ask` layer 1, nurse-agents production files.
+
+**Handover chi tiết:** `docs/opencode/V7_HANDOVER.md`.
+
+---
+
+## Section 15.5 — Vận hành & fixes 06→07/2026 (backfill 2026-07-11, chi tiết trong verification-log)
+
+| Ngày | Việc | Kết quả |
+|---|---|---|
+| 2026-06-22 | Healthcheck-fix 6 lỗi: serve :22000 (PATH + unit oneshot/RemainAfterExit), MCP filesystem gỡ root .config/opencode, pipeline `wait_for_arkon()`, backup cron 02:00→14:00, One-API deprecated, Netdata defer | PASS — verify bằng lệnh thật |
+| 2026-07-04 | V6.4 Windows Read: rules.json read_whitelist += /mnt/c,d,e,f + 8 secret-guard pattern Windows; edit vẫn ask | PASS offline; live-verify a–k treo |
+| 2026-07-05 | MCP fixes: 3 server absolute path (PATH systemd), windows-bridge newline framing, cloudflare disable (OAuth dở); sweep 9 MCP disabled — tất cả healthy | PASS |
+
+**Trạng thái sau backfill:** OpenCode v1.17.15 · serve :22000 systemd ổn định · MCP 4/14 enabled · gate V6.4 rules (nghi vấn #7006 → V7 Phase C).
+
+---
+
+## Section 17 — Maintenance 2026-07-15: Bổ sung – Nâng cấp – Dọn dẹp (đối chiếu AI 7/2026)
+
+Đối chiếu công nghệ AI mới nhất → 9router ĐÃ bắt kịp model mới (GPT-5.x, Claude 4.6-4.8, Gemini 3.x, DeepSeek V4...); việc còn lại là hạ tầng local. Chi tiết verify trong verification-log entry cùng ngày.
+
+| Việc | Trước | Sau |
+|---|---|---|
+| context7 MCP | disabled | **enabled** (handshake PASS v3.2.3) — MCP 4→5/14 |
+| Ollama models | 9 (~33 GB) | **6** — xóa bge-m3, mxbai-embed-large, nomic-embed-text v1 (~2.1 GB); GIỮ nomic-embed-text-v2-moe |
+| `~/bin/one-api` | 68 MB deprecated | **đã xóa** |
+| `hooks/daemon.mjs` (V6A) | trên đĩa làm fallback | **archived** → `bak-20260715-212003/` (start-daemon.sh không spawn nó từ V6B) |
+| `.bak` files ~/.config/opencode | 7 | **2** (giữ 2 opencode.json.bak mới nhất, còn lại vào archive) |
+| Ollama version | 0.21.0 | **0.32.0 — DONE cùng ngày** (user chạy sudo tương tác); override.conf sống sót reinstall, GPU sm_120 nhận đúng (`compute=12.0`, libdir cuda_v13), verify 83.9 tok/s 100% GPU + embedding 768d OK |
+
+**Theo dõi:** MCP spec stateless 2026-07-28 (windows-bridge.mjs có thể cần sửa handshake); CUDA 12.9 OK cho sm_120 (tránh 13.1); vLLM chưa cần.

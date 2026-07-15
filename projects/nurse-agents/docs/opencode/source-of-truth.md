@@ -1,6 +1,6 @@
 # Source of Truth — nurse-agents + OpenCode
 
-**Last updated:** 2026-06-07  
+**Last updated:** 2026-07-11 (V7 Phase A — docs backfill)  
 **Migration Note:** OpenHands → Agent-Canvas (2026-06-07). See [AGENT_CANVAS_MIGRATION.md](AGENT_CANVAS_MIGRATION.md)
 
 File này là điểm vào ngắn nhất để biết cần đọc file nào trước. Không đọc toàn bộ docs nếu task không cần.
@@ -99,12 +99,13 @@ bash ~/projects/nurse-agents/scripts/opencode/full-healthcheck.sh
 
 | Thành phần | Trạng thái | Ghi chú |
 |---|---|---|
-| OpenCode | ✅ v1.15.13 | 16 agents (+ nous-hermes), 12 commands, 11 skills |
+| OpenCode | ✅ v1.17.15 | 18 agents, ~36 commands, 23 skills, serve :22000 (systemd opencode-hooks, fix 22/06) |
+| MCP servers | ✅ 4/14 enabled | memory, filesystem (~/projects only), sequential-thinking, windows-bridge (framing fix 05/07); cloudflare disabled chờ OAuth |
+| Permission gate | ⚠️ V6.4 rules | read_whitelist gồm /mnt/c-f; live-verify a–k còn treo; nghi vấn #7006 permission.ask không trigger → xử lý ở V7 Phase C |
 | Nous Hermes | ✅ v0.16.0 "bộ não" | `~/.hermes/`, 2 profiles (telegram/coach), model HN, bridge :18790 systemd (queue drain 60s), gateway systemd (cron+hooks), 2 cron jobs (memory digest 08:00, healthcheck 07:30), skills custom, dashboard on-demand `hermes dashboard` :9119 |
-| Proxy port 3000 | ✅ chạy | Anthropic-compatible |
-| Ollama port 11434 | ✅ chạy | 9 models |
-| nurse-agents API | ✅ | 15 tests pass, SQLite persistent |
-| MCP servers | ⚠️ disabled mặc định | Enable per task |
+| 9router :20128 | ✅ chạy | LLM routing chính (One-API DEPRECATED từ V3, xác nhận 22/06) |
+| Ollama port 11434 | ✅ chạy | 10 models |
+| nurse-agents API | ✅ | 80 tests pass, SQLite persistent |
 | Agent-Canvas | ✅ port 8000 | npm agent-canvas, LLM: 9router kr/claude-sonnet-4-agentic, workspace /tmp/oh-test-workspace |
 
 **Cập nhật trạng thái này** khi có thay đổi lớn về infrastructure.
